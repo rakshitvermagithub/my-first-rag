@@ -66,6 +66,7 @@ async function extractTextFromFile(file: File): Promise<string> {
       pdfParser.parseBuffer(buffer);
     })
   }
-
-  
+  else {
+    throw new Error(`Unsupported file type. Please upload PDF, DOCX, or TXT files.`);
+  }
 }

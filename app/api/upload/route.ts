@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { error } from 'console';
 import OpenAI from 'openai'; 
+import mammoth from 'mammoth';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!;
@@ -32,9 +33,9 @@ function safeDecodeURIComponent(str: string): string {
 async function extractTextFromFile(file: File): Promise<string> {
   // Get the raw binary data fromatted for javascript from the file
   const buffer = Buffer.from(await file.arrayBuffer());
-  const filename = file.name.toLowerCase();
+  const fileName = file.name.toLowerCase();
 
-  if (filename.endsWith('.pdf')) {
+  if (fileName.endsWith('.pdf')) {
     const PDFParser = (await import('pdf2json')).default;
     
     return new Promise ((resolve, reject) => {
@@ -66,7 +67,12 @@ async function extractTextFromFile(file: File): Promise<string> {
       pdfParser.parseBuffer(buffer);
     })
   }
-  else {
-    throw new Error(`Unsupported file type. Please upload PDF, DOCX, or TXT files.`);
+  else if (fileName.endsWith('.docx')) {
+    const result = await mammoth.extractRawText({ buffer });
+    return result.value;
   }
+  else if (fileName.endsWith('.txt'))
+    return buffer.toString('utf-8');
+  else
+    throw new Error(`Unsupported file type. Please upload PDF, DOCX, or TXT files.`);
 }

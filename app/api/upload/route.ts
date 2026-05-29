@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { error } from 'console';
 import OpenAI from 'openai'; 
 import mammoth from 'mammoth';
+import { NextResponse } from 'next/server';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!;
@@ -75,4 +76,32 @@ async function extractTextFromFile(file: File): Promise<string> {
     return buffer.toString('utf-8');
   else
     throw new Error(`Unsupported file type. Please upload PDF, DOCX, or TXT files.`);
+}
+
+export async function POST(req: Request) {
+  const file = (await req.formData()).get('file') as File;
+  if (!file) {
+    return NextResponse.json({ error: 'File not found' }, { status: 400 });
+  }
+
+  // Assign random id
+  const documentId = crypto.randomUUID();
+  // produce metadata
+  const uploadDate = new Date().toISOString();
+  const filePath = `${documentId}.${file.name.split('.').pop() || 'bin'}`;
+
+  // Upload file buffer to supabase storage
+  const fileBuffer = Buffer.from(await file.arrayBuffer());
+  const {error: storageError} = await supabase.storage.from('documents')
+    .upload(filePath, fileBuffer, {
+      contentType: file.type || 'application/octet-stream',
+      upsert: false,
+    })
+
+  if (storageError) {
+    return NextResponse.json({ success: false, error: storageError.message }, { status: 500 });
+  } 
+
+  // After uplaoded successfully, Get public URL for the file
+  const { data: urlData } = supabaseStorage.storage.from('documents').getPublicUrl(filePath);
 }

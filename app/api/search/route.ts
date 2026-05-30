@@ -27,7 +27,27 @@ export async function POST(req: Request) {
 			model: 'text-embedding-3-small'
 		});
 
-		const queryEmbeddings = embeddingResponse.data[0].embedding;
+		const queryEmbedding = embeddingResponse.data[0].embedding;
+
+		const { data: results, error: databaseError } = await supabase.rpc(
+			'match_document', 
+			{
+				query_embedding: JSON.stringify(queryEmbedding), // Pass query vector as a JSON string
+        match_threshold: 0.3,                           // Only accept chunks that match by at least 30%
+        match_count: 5,                                 // Bring back only the top 5 closest matches				
+			}
+		);
+
+		if (databaseError) {
+			return NextResponse.json(
+        { error: databaseError.message }, 
+        { status: 500 }
+      );
+		}
+
+		// In the rows returned as results from our supabase db
+		// Take each row.content and join it into one context
+		const contextText = results?.map((row: any) => row.content).join('\n---\n') || '';
 	}
 	catch (err: any) {
 			console.log ("Bhaari Error");

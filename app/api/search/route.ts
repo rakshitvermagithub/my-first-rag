@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { request } from 'http';
+import { Chat } from 'openai/resources';
 
 // Extract environment variables from system
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -48,8 +49,35 @@ export async function POST(req: Request) {
 		// In the rows returned as results from our supabase db
 		// Take each row.content and join it into one context
 		const contextText = results?.map((row: any) => row.content).join('\n---\n') || '';
+
+		// Send query with context to ai chat
+		const completion = await openai.chat.completions.create({
+			model: 'gpt-4o-mini',
+			messages: [
+				{
+				role: 'system',
+				content: 'You are a helpful assistant. Use the provided context to answer questions. If the answer is not in the context, say you do not know. Do not make up facts.'
+				},
+				{
+					role: 'user',
+					content: `Context: ${contextText}\n\nQuestion: ${query}`
+				}
+			]
+		})
+
+		const answer = completion.choices[0].message.content;
+
+		return NextResponse.json({
+      answer,
+      sources: results // This contains our top 5 matching database records
+    });
+
+
 	}
 	catch (err: any) {
-			console.log ("Bhaari Error");
+		return NextResponse.json(
+			{ error: err.message || 'An unexpected error occurred during search'},
+			{ status: 500 }
+		)
 	}
 }
